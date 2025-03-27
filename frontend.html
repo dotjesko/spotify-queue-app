@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spotify Queue Manager</title>
+  <style>
+body {
+  font-family: Arial, sans-serif;
+  background: #000;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.container {
+  width: 90%;
+  max-width: 600px;
+  text-align: center;
+  background: #121212;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #1DB954;
+}
+
+button {
+  padding: 12px 24px;
+  background: #1DB954;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+button:hover {
+  background: #17a74a;
+  transform: scale(1.05);
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border: none;
+  border-radius: 20px;
+  text-align: center;
+  font-size: 16px;
+  background: #282828;
+  color: white;
+  outline: none;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  background: #181818;
+  padding: 12px;
+  border-radius: 10px;
+  margin: 8px 0;
+  cursor: pointer;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.track:hover {
+  background: #282828;
+}
+
+.track img {
+  width: 50px;
+  height: 50px;
+  border-radius: 5px;
+  margin-right: 15px;
+}
+
+.track-info {
+  flex-grow: 1;
+  font-size: 14px;
+}
+
+.selected {
+  background: #1DB954 !important;
+  box-shadow: 0px 0px 15px rgba(29, 185, 84, 0.8);
+}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Spotify Queue Manager</h1>
+    <div id="loginSection">
+      <button onclick="window.location.href='http://localhost:3000/login'">Mit Spotify verbinden</button>
+    </div>
+    
+    <div id="app" style="display: none;">
+      <input type="text" id="searchInput" placeholder="Song suchen..." oninput="searchSongs()" onkeydown="handleKeyDown(event)">
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get('access_token');
+    let currentIndex = -1;
+
+    if (accessToken) {
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+    }
+
+    async function searchSongs() {
+      const query = document.getElementById('searchInput').value;
+      if (!query) return;
+      const response = await fetch(`http://localhost:3000/search?q=${encodeURIComponent(query)}&access_token=${accessToken}`);
+      const tracks = await response.json();
+      
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = tracks.map((track, index) => `
+        <div class="track" data-index="${index}" onclick="addToQueue('${track.uri}')">
+          <img src="${track.album.images[0].url}" alt="${track.name} Cover">
+          <div class="track-info">
+            <strong>${track.name}</strong> - ${track.artists[0].name}
+          </div>
+        </div>
+      `).join('');
+
+      currentIndex = -1;
+    }
+
+    function handleKeyDown(event) {
+      const tracks = document.querySelectorAll('.track');
+      if (tracks.length === 0) return;
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (currentIndex < tracks.length - 1) {
+          currentIndex++;
+        }
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (currentIndex > 0) {
+          currentIndex--;
+        }
+      } else if (event.key === 'Enter' && currentIndex >= 0) {
+        addToQueue(tracks[currentIndex].getAttribute('onclick').match(/'([^']+)'/)[1]);
+      }
+
+      tracks.forEach(track => track.classList.remove('selected'));
+      if (currentIndex >= 0) {
+        tracks[currentIndex].classList.add('selected');
+      }
+    }
+
+    async function addToQueue(trackUri) {
+      try {
+        const response = await fetch(
+          `http://localhost:3000/add-to-queue?track_uri=${encodeURIComponent(trackUri)}&access_token=${accessToken}`,
+          { method: 'POST' }
+        );
+        if (response.ok) showToast('Erfolgreich hinzugefügt!');
+      } catch (error) {
+        showToast('Fehler: Stelle sicher, dass Musik auf einem Gerät abgespielt wird!');
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.textContent = message;
+      toast.style.position = 'fixed';
+      toast.style.bottom = '60%';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.background = '#1DB954';
+      toast.style.color = 'white';
+      toast.style.padding = '10px 20px';
+      toast.style.borderRadius = '5px';
+      toast.style.boxShadow = '0px 4px 10px rgba(0, 0, 0, 0.3)';
+      toast.style.zIndex = '1000';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+    async function searchSongs() {
+  const query = document.getElementById('searchInput').value;
+  if (!query) return;
+  const response = await fetch(`http://localhost:3000/search?q=${encodeURIComponent(query)}&access_token=${accessToken}`);
+  const tracks = await response.json();
+  
+  const resultsDiv = document.getElementById('results');
+  resultsDiv.innerHTML = tracks.map((track, index) => `
+    <div class="track" data-index="${index}" onclick="addToQueue('${track.uri}')">
+      <img src="${track.album.images[0].url}" alt="${track.name} Cover">
+      <div class="track-info">
+        <strong>${track.name}</strong> - ${track.artists[0].name}
+      </div>
+    </div>
+  `).join('');
+
+  currentIndex = 0;  // Setzt den aktuellen Index auf das oberste Ergebnis
+  updateSelection();
+}
+
+function updateSelection() {
+  const tracks = document.querySelectorAll('.track');
+  tracks.forEach(track => track.classList.remove('selected'));
+  if (currentIndex >= 0) {
+    tracks[currentIndex].classList.add('selected');
+  }
+}
+async function addToQueue(trackUri) {
+  try {
+    const response = await fetch(
+      `http://localhost:3000/add-to-queue?track_uri=${encodeURIComponent(trackUri)}&access_token=${accessToken}`,
+      { method: 'POST' }
+    );
+    
+    if (response.ok) {
+      showToast('Erfolgreich hinzugefügt!');
+      resetSearch(); // Suche zurücksetzen
+    }
+  } catch (error) {
+    showToast('Fehler: Stelle sicher, dass Musik auf einem Gerät abgespielt wird!');
+  }
+}
+
+function resetSearch() {
+  document.getElementById('searchInput').value = ''; // Suchfeld leeren
+  document.getElementById('results').innerHTML = ''; // Suchergebnisse entfernen
+  currentIndex = -1; // Auswahl zurücksetzen
+}
+
+
+  </script>
+</body>
+</html>
